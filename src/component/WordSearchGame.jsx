@@ -233,6 +233,41 @@ const WordSearchGame = () => {
     generateGrid(wordList);
   };
 
+  // Add effect to prevent default touch behaviors when game is active
+  useEffect(() => {
+    const preventDefault = (e) => {
+      if (isSelecting) {
+        e.preventDefault();
+      }
+    };
+
+    const preventDefaultPassive = (e) => {
+      e.preventDefault();
+    };
+
+    // Add event listeners to prevent scrolling and zooming on the game area
+    const gridElement = gridRef.current;
+    if (gridElement) {
+      gridElement.addEventListener('touchstart', preventDefaultPassive, { passive: false });
+      gridElement.addEventListener('touchmove', preventDefaultPassive, { passive: false });
+      gridElement.addEventListener('touchend', preventDefaultPassive, { passive: false });
+    }
+
+    // Also prevent body scrolling when selecting
+    document.body.addEventListener('touchstart', preventDefault, { passive: false });
+    document.body.addEventListener('touchmove', preventDefault, { passive: false });
+
+    return () => {
+      if (gridElement) {
+        gridElement.removeEventListener('touchstart', preventDefaultPassive);
+        gridElement.removeEventListener('touchmove', preventDefaultPassive);
+        gridElement.removeEventListener('touchend', preventDefaultPassive);
+      }
+      document.body.removeEventListener('touchstart', preventDefault);
+      document.body.removeEventListener('touchmove', preventDefault);
+    };
+  }, [isSelecting]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -250,8 +285,15 @@ const WordSearchGame = () => {
         <div className="flex flex-col items-center">
           <div
             ref={gridRef}
-            className="grid grid-cols-15 gap-0 border-2 border-gray-400 bg-white p-2 rounded-lg shadow-lg"
-            style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}
+            className="grid grid-cols-15 gap-0 border-2 border-gray-400 bg-white p-2 rounded-lg shadow-lg select-none"
+            style={{ 
+              gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+              touchAction: 'none', // Prevent all touch gestures
+              userSelect: 'none',  // Prevent text selection
+              WebkitUserSelect: 'none', // Safari
+              MozUserSelect: 'none', // Firefox
+              msUserSelect: 'none', // IE/Edge
+            }}
           >
             {grid.map((row, rowIndex) =>
               row.map((letter, colIndex) => (
@@ -264,27 +306,42 @@ const WordSearchGame = () => {
                     ${isCellSelected(rowIndex, colIndex) ? 'bg-blue-200 text-blue-800' : ''}
                     ${!isCellInFoundWord(rowIndex, colIndex) && !isCellSelected(rowIndex, colIndex) ? 'hover:bg-gray-100' : ''}
                   `}
+                  style={{
+                    touchAction: 'none',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none',
+                    WebkitTouchCallout: 'none', // Disable iOS callout
+                    WebkitTapHighlightColor: 'transparent', // Remove tap highlight
+                  }}
                   onMouseDown={() => handleCellStart(rowIndex, colIndex)}
                   onMouseEnter={() => handleCellMove(rowIndex, colIndex)}
                   onMouseUp={handleCellEnd}
                   onTouchStart={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     handleCellStart(rowIndex, colIndex);
                   }}
                   onTouchMove={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     const touch = e.touches[0];
                     const element = document.elementFromPoint(touch.clientX, touch.clientY);
                     if (element) {
-                      const row = parseInt(element.getAttribute('data-row') || rowIndex);
-                      const col = parseInt(element.getAttribute('data-col') || colIndex);
-                      handleCellMove(row, col);
+                      const row = parseInt(element.getAttribute('data-row'));
+                      const col = parseInt(element.getAttribute('data-col'));
+                      if (!isNaN(row) && !isNaN(col)) {
+                        handleCellMove(row, col);
+                      }
                     }
                   }}
                   onTouchEnd={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     handleCellEnd();
                   }}
+                  onContextMenu={(e) => e.preventDefault()} // Prevent context menu
                   data-row={rowIndex}
                   data-col={colIndex}
                 >
